@@ -1,0 +1,35 @@
+# --- Node / Next.js (frontend) ---
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+frontend/.next/
+frontend/out/
+frontend/build/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.vercel
+
+# --- Python / FastAPI (backend) ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+backend/.venv/
+
+# --- Env files ---
+.env
+.env.local
+.env.*.local
+
+# --- Misc ---
+.DS_Store
+*.pem
