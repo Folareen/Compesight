@@ -24,6 +24,7 @@ __pycache__/
 *.egg-info/
 .venv/
 backend/.venv/
+.pytest_cache/
 
 # --- Env files ---
 .env

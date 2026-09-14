@@ -8,5 +8,13 @@ class Settings(BaseSettings):
     environment: str = "development"
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    database_url: str = "postgresql+asyncpg://compesight:compesight@localhost:5432/compesight"
+
+    redis_url: str = "redis://localhost:6379/0"
+
+    clerk_secret_key: str = ""
+    clerk_jwks_url: str = ""
+    clerk_issuer: str = ""
+
 
 settings = Settings()
