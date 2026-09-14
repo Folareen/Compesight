@@ -100,7 +100,18 @@ RSS/blog → GitHub → Hacker News → Reddit → Product Hunt → YouTube → 
 
 ---
 
-## Phase 8 — Commercial
+## Phase 8 — UI rework
+By now every screen has been built to spec, once, under time pressure to get the pipeline working. This phase is dedicated to going back over all of it with fresh eyes.
+
+- Full UI rework — revisit every screen built in Phases 0–7 against [design-system.md](design-system.md) and tighten what shipped fast the first time: spacing, hierarchy, empty/loading states, responsive behavior, dark mode parity.
+- Audit the component set (`UrgencyBadge`, `HealthPill`, `FindingCard`, `DiffView`, `BattlecardPanel`, `EmptyState`) for consistency now that they've all been used in anger — fix drift, not just individual screens.
+- Flag anything else worth changing while in there — copy, navigation structure, information density, interaction patterns — even if it wasn't explicitly called out above. This phase is the deliberate pause to fix "we'll clean this up later."
+
+**Done when:** the dashboard feels designed, not assembled — no screen still looks like its Phase 0–7 first draft.
+
+---
+
+## Phase 9 — Commercial
 - Plans, Stripe, workspace subscription.
 - Plan-bound crawl intervals and competitor limits.
 - LLM budget enforcement: soft warn, hard stop that queues classification rather than dropping it.
@@ -114,5 +125,5 @@ RSS/blog → GitHub → Hacker News → Reddit → Product Hunt → YouTube → 
 ## Ordering notes
 
 - **Phases 1–3 are the product.** If something has to give, cut sources (6) and Q&A (7), not health (2) or dedup/routing (4).
-- Retention (8) only matters once snapshots accumulate, but the *schema* for it lands in Phase 1 — retrofitting a retention column across a large table is painful.
+- Retention (9) only matters once snapshots accumulate, but the *schema* for it lands in Phase 1 — retrofitting a retention column across a large table is painful.
 - Billing last, deliberately. It's well-understood work; nothing is learned by doing it early.
