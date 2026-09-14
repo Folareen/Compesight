@@ -16,5 +16,15 @@ class Settings(BaseSettings):
     clerk_jwks_url: str = ""
     clerk_issuer: str = ""
 
+    crawler_user_agent: str = "CompesightBot/1.0 (+https://compesight.example/bot)"
+    crawl_timeout_ms: int = 30_000
+    crawl_min_host_interval_seconds: float = 2.0
+    crawl_backoff_base_seconds: float = 5.0
+    crawl_backoff_cap_seconds: float = 600.0
+    crawl_backoff_jitter_seconds: float = 3.0
+    scheduler_enqueue_jitter_seconds: int = 60
+    source_lock_ttl_seconds: int = 300
+    robots_cache_ttl_seconds: int = 3600
+
 
 settings = Settings()
