@@ -1,6 +1,6 @@
 # Compesight
 
-Competitor monitoring web app. See [spec.md](spec.md) for the full product spec.
+Competitor monitoring web app. See [spec.md](spec.md) for the full product spec, and [docs/](docs/) for architecture, conventions, and the build plan.
 
 ## Stack
 
