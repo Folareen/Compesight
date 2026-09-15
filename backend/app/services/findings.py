@@ -1,22 +1,8 @@
 import hashlib
 import uuid
 
-from app.models.finding import ChangeType, Urgency
-from app.models.source import SourceType
+from app.models.finding import ChangeType
 from app.schemas.extraction_fields import Changeset
-
-
-def classify_mechanically(changeset: Changeset, source_type: SourceType) -> tuple[ChangeType, Urgency]:
-    """Deterministic, non-LLM classification — Phase 3 replaces this with a
-    model call. Price-figure changes on a pricing page are the highest
-    signal this phase can produce mechanically; everything else is
-    downgraded but never miscategorized as pricing."""
-    if source_type == SourceType.pricing_page:
-        price_changed = any(
-            "price_minor_units" in change.path or "currency" in change.path for change in changeset.fields
-        )
-        return ChangeType.pricing, (Urgency.medium if price_changed else Urgency.low)
-    return ChangeType.other, Urgency.low
 
 
 def compute_dedupe_key(competitor_id: uuid.UUID, change_type: ChangeType, changeset: Changeset) -> str:
@@ -31,9 +17,10 @@ def compute_dedupe_key(competitor_id: uuid.UUID, change_type: ChangeType, change
 def build_title_and_summary(
     change_type: ChangeType, changeset: Changeset, competitor_name: str
 ) -> tuple[str, str]:
-    """Deterministic templated text — a placeholder for Phase 3's LLM
-    prose, not itself a classification step. Must never look degenerate:
-    branches on how many fields changed and what kind."""
+    """Deterministic templated text, used when classification fails or is
+    budget-parked (LLM prose is the normal path — see
+    app/services/classification.py). Must never look degenerate: branches
+    on how many fields changed and what kind."""
     if change_type == ChangeType.pricing:
         title = f"Pricing changed on {competitor_name}"
     else:

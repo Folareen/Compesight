@@ -10,9 +10,11 @@ from app.models.source import Source, SourceType
 from app.repositories import competitors as competitors_repo
 from app.repositories import extractions as extractions_repo
 from app.repositories import findings as findings_repo
-from app.schemas.extraction_fields import Changeset, PricingPageFields, WebsitePageFields
+from app.schemas.extraction_fields import Changeset, PricingPageFields, SourceConfig, WebsitePageFields
 from app.services import findings as findings_service
+from app.services.classification import ClassificationOutcome, classify
 from app.services.diffing import diff_pricing, diff_website
+from app.services.significance import is_significant
 
 _EMPTY_CHANGESET = Changeset(fields=[])
 
@@ -56,7 +58,37 @@ async def _diff_extraction_async(extraction_id: uuid.UUID) -> None:
         if changeset is None:
             return
 
-        change_type, urgency = findings_service.classify_mechanically(changeset, source.type)
+        source_config = SourceConfig.model_validate(source.config)
+        if not is_significant(changeset, source_config):
+            # Cheapest possible win (docs/llm-usage.md Rule 1): whitespace,
+            # reordering, and known-noise churn never reaches the model,
+            # and never becomes a finding at all.
+            return
+
+        classification = await classify(db, workspace_id, source.url, source.type, changeset)
+
+        if classification.outcome == ClassificationOutcome.success:
+            assert classification.result is not None
+            change_type = classification.result.change_type
+            urgency = classification.result.urgency
+            title = classification.result.title
+            summary = classification.result.summary
+            classification_status = ClassificationStatus.ok
+        else:
+            # Never drop the finding on a malformed response or a
+            # budget-parked call — the diff is durable and real, only the
+            # label is missing (docs/rules.md: silence is never success).
+            change_type = ChangeType.pricing if source.type == SourceType.pricing_page else ChangeType.other
+            urgency = Urgency.low
+            title, summary = findings_service.build_title_and_summary(
+                change_type, changeset, competitor_name=source.url
+            )
+            classification_status = (
+                ClassificationStatus.pending
+                if classification.outcome == ClassificationOutcome.budget_exhausted
+                else ClassificationStatus.failed
+            )
+
         dedupe_key = findings_service.compute_dedupe_key(source.competitor_id, change_type, changeset)
 
         existing = await findings_repo.get_by_dedupe_key(db, workspace_id, dedupe_key)
@@ -65,9 +97,6 @@ async def _diff_extraction_async(extraction_id: uuid.UUID) -> None:
             # duplicate the finding.
             return
 
-        title, summary = findings_service.build_title_and_summary(
-            change_type, changeset, competitor_name=source.url
-        )
         await findings_repo.create(
             db,
             workspace_id,
@@ -81,7 +110,7 @@ async def _diff_extraction_async(extraction_id: uuid.UUID) -> None:
             changeset.model_dump(mode="json"),
             False,
             dedupe_key,
-            ClassificationStatus.ok,
+            classification_status,
         )
         await db.commit()
 

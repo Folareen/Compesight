@@ -6,6 +6,8 @@ from app.models.source import Source, SourceType, SourceStatus
 from app.models.snapshot import Snapshot
 from app.models.extraction import Extraction, ExtractionMethod
 from app.models.finding import Finding, ChangeType, Urgency, ClassificationStatus
+from app.models.finding_feedback import FindingFeedback, FeedbackVerdict
+from app.models.llm_usage import LlmUsage, LlmPurpose
 
 __all__ = [
     "User",
@@ -24,4 +26,8 @@ __all__ = [
     "ChangeType",
     "Urgency",
     "ClassificationStatus",
+    "FindingFeedback",
+    "FeedbackVerdict",
+    "LlmUsage",
+    "LlmPurpose",
 ]

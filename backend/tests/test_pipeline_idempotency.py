@@ -1,5 +1,7 @@
+import json
 import uuid
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 from sqlalchemy import select
 
@@ -47,6 +49,16 @@ async def _set_url(source_id: uuid.UUID, url: str) -> None:
         await db.commit()
 
 
+def _fake_classification_response() -> SimpleNamespace:
+    text = json.dumps(
+        {"change_type": "pricing", "urgency": "medium", "title": "Price changed", "summary": "Pro tier price changed"}
+    )
+    return SimpleNamespace(
+        content=[SimpleNamespace(type="text", text=text)],
+        usage=SimpleNamespace(input_tokens=50, output_tokens=20),
+    )
+
+
 async def test_repeated_crawl_of_unchanged_content_writes_one_snapshot_per_attempt_but_extracts_once(
     fixture_server: str,
 ) -> None:
@@ -90,8 +102,13 @@ async def test_diffing_the_same_extraction_twice_does_not_duplicate_finding(fixt
     assert len(extractions) == 2
     latest_extraction = max(extractions, key=lambda e: e.created_at)
 
-    await _diff_extraction_async(latest_extraction.id)
-    await _diff_extraction_async(latest_extraction.id)  # re-run: must not duplicate
+    mock_create = AsyncMock(return_value=_fake_classification_response())
+    with patch(
+        "app.services.classification.get_client",
+        return_value=SimpleNamespace(messages=SimpleNamespace(create=mock_create)),
+    ):
+        await _diff_extraction_async(latest_extraction.id)
+        await _diff_extraction_async(latest_extraction.id)  # re-run: must not duplicate
 
     async with async_session_factory() as fresh_db:
         findings = (

@@ -36,6 +36,7 @@ class SourceConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     selector_override: str | None = None
+    ignore_fields: list[str] = []
 
 
 class FieldChange(BaseModel):

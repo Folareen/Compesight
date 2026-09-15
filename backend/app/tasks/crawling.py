@@ -13,6 +13,7 @@ from app.schemas.extraction_fields import SourceConfig
 from app.services.backoff import backoff_with_jitter
 from app.services.crawler import CrawlSession, crawl_source
 from app.services.extraction import ExtractionFailed, extract_pricing_page, extract_website_page
+from app.services.extraction_llm import extract_with_llm
 from app.services.robots import RobotsDisallowed
 from app.services.source_health import next_health_state
 from app.tasks.diffing import diff_extraction_task
@@ -112,6 +113,7 @@ async def _crawl_source_async(source_id: uuid.UUID) -> float | None:
             await result.close()
             return None
 
+        extraction_method = ExtractionMethod.selector
         try:
             source_config = SourceConfig.model_validate(source.config)
             if source.type == SourceType.pricing_page:
@@ -119,26 +121,37 @@ async def _crawl_source_async(source_id: uuid.UUID) -> float | None:
             else:
                 fields = await extract_website_page(result.page, source_config)
         except ExtractionFailed:
-            # Extraction-drift signal (docs/scraping.md): fetches succeed
-            # but selectors can't find what they expect. Tracked as its own
-            # streak, separate from consecutive_failures (an ordinary fetch
-            # failure) — repeated failures here mean the page was
-            # redesigned, not that the site is unreachable.
-            streak = source.extraction_failure_streak + 1
-            await sources_repo.update_health(
-                db,
-                source.workspace_id,
-                source.id,
-                status=SourceStatus.degraded,
-                last_attempt_at=now,
-                last_success_at=now,
-                consecutive_failures=source.consecutive_failures,
-                blocked_reason=None,
-                extraction_failure_streak=streak,
-            )
-            await db.commit()
-            await result.close()
-            return None
+            # Selectors couldn't find what they expect — try the LLM
+            # fallback (docs/llm-usage.md) against the raw page text before
+            # giving up. `method` on the extraction row is what drives the
+            # extraction-drift health signal, so it must reflect whichever
+            # path actually produced the fields.
+            page_text = " ".join((await result.page.locator("body").inner_text()).split())
+            llm_fields = await extract_with_llm(db, source.workspace_id, source.type, page_text)
+            if llm_fields is None:
+                # Extraction-drift signal (docs/scraping.md): fetches
+                # succeed but neither selectors nor the LLM fallback can
+                # find what they expect. Tracked as its own streak,
+                # separate from consecutive_failures (an ordinary fetch
+                # failure) — repeated failures here mean the page was
+                # redesigned, not that the site is unreachable.
+                streak = source.extraction_failure_streak + 1
+                await sources_repo.update_health(
+                    db,
+                    source.workspace_id,
+                    source.id,
+                    status=SourceStatus.degraded,
+                    last_attempt_at=now,
+                    last_success_at=now,
+                    consecutive_failures=source.consecutive_failures,
+                    blocked_reason=None,
+                    extraction_failure_streak=streak,
+                )
+                await db.commit()
+                await result.close()
+                return None
+            fields = llm_fields
+            extraction_method = ExtractionMethod.llm
 
         extraction = await extractions_repo.create(
             db,
@@ -146,8 +159,8 @@ async def _crawl_source_async(source_id: uuid.UUID) -> float | None:
             snapshot.id,
             fields.schema_version,
             fields.model_dump(mode="json"),
-            ExtractionMethod.selector,
-            confidence=1.0,
+            extraction_method,
+            confidence=1.0 if extraction_method == ExtractionMethod.selector else 0.7,
         )
         if source.extraction_failure_streak != 0:
             await sources_repo.update_health(

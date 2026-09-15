@@ -1,5 +1,5 @@
 import uuid
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from app.db.session import async_session_factory
 from app.models.competitor import CompetitorStatus
@@ -49,7 +49,10 @@ async def _set_url(source_id: uuid.UUID, url: str) -> None:
 async def test_extraction_failure_increments_streak_and_degrades(fixture_server: str) -> None:
     _, _, source = await _setup_source(f"{fixture_server}/pricing_malformed.html")
 
-    with patch("app.tasks.crawling.diff_extraction_task.delay"):
+    with (
+        patch("app.tasks.crawling.diff_extraction_task.delay"),
+        patch("app.tasks.crawling.extract_with_llm", AsyncMock(return_value=None)),
+    ):
         await _crawl_source_async(source.id)
 
     refreshed = await _get_source(source.id)
@@ -64,15 +67,24 @@ async def test_extraction_failure_streak_accumulates_across_crawls(fixture_serve
     malformed page would only ever extract (and fail) once."""
     _, _, source = await _setup_source(f"{fixture_server}/pricing_malformed.html")
 
-    with patch("app.tasks.crawling.diff_extraction_task.delay"):
+    with (
+        patch("app.tasks.crawling.diff_extraction_task.delay"),
+        patch("app.tasks.crawling.extract_with_llm", AsyncMock(return_value=None)),
+    ):
         await _crawl_source_async(source.id)
 
     await _set_url(source.id, f"{fixture_server}/pricing_malformed_v2.html")
-    with patch("app.tasks.crawling.diff_extraction_task.delay"):
+    with (
+        patch("app.tasks.crawling.diff_extraction_task.delay"),
+        patch("app.tasks.crawling.extract_with_llm", AsyncMock(return_value=None)),
+    ):
         await _crawl_source_async(source.id)
 
     await _set_url(source.id, f"{fixture_server}/pricing_malformed_v3.html")
-    with patch("app.tasks.crawling.diff_extraction_task.delay"):
+    with (
+        patch("app.tasks.crawling.diff_extraction_task.delay"),
+        patch("app.tasks.crawling.extract_with_llm", AsyncMock(return_value=None)),
+    ):
         await _crawl_source_async(source.id)
 
     refreshed = await _get_source(source.id)
@@ -82,7 +94,10 @@ async def test_extraction_failure_streak_accumulates_across_crawls(fixture_serve
 async def test_successful_extraction_resets_failure_streak(fixture_server: str) -> None:
     _, _, source = await _setup_source(f"{fixture_server}/pricing_malformed.html")
 
-    with patch("app.tasks.crawling.diff_extraction_task.delay"):
+    with (
+        patch("app.tasks.crawling.diff_extraction_task.delay"),
+        patch("app.tasks.crawling.extract_with_llm", AsyncMock(return_value=None)),
+    ):
         await _crawl_source_async(source.id)
 
     async with async_session_factory() as db:

@@ -8,8 +8,10 @@ from app.api.deps import WorkspaceContext, get_workspace_context
 from app.db.session import get_db
 from app.models.finding import ChangeType, Finding, Urgency
 from app.repositories import competitors as competitors_repo
+from app.repositories import finding_feedback as finding_feedback_repo
 from app.repositories import findings as findings_repo
 from app.schemas.finding import FindingListOut, FindingOut
+from app.schemas.finding_feedback import FindingFeedbackIn, FindingFeedbackOut
 
 router = APIRouter(prefix="/findings", tags=["findings"])
 
@@ -74,3 +76,34 @@ async def get_finding(
     if finding is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "finding not found")
     return _to_finding_out(finding)
+
+
+@router.post("/{finding_id}/feedback", response_model=FindingFeedbackOut, status_code=status.HTTP_201_CREATED)
+async def create_finding_feedback(
+    finding_id: uuid.UUID,
+    body: FindingFeedbackIn,
+    ctx: WorkspaceContext = Depends(get_workspace_context),
+    db: AsyncSession = Depends(get_db),
+) -> FindingFeedbackOut:
+    finding = await findings_repo.get(db, ctx.workspace_id, finding_id)
+    if finding is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "finding not found")
+
+    feedback = await finding_feedback_repo.create(
+        db,
+        ctx.workspace_id,
+        finding_id,
+        ctx.user_id,
+        body.verdict,
+        body.corrected_change_type,
+        body.corrected_urgency,
+    )
+    await db.commit()
+    return FindingFeedbackOut(
+        id=feedback.id,
+        finding_id=feedback.finding_id,
+        verdict=feedback.verdict,
+        corrected_change_type=feedback.corrected_change_type,
+        corrected_urgency=feedback.corrected_urgency,
+        created_at=feedback.created_at,
+    )

@@ -28,5 +28,11 @@ class Settings(BaseSettings):
     extraction_drift_threshold: int = 3
     source_discovery_timeout_seconds: float = 5.0
 
+    anthropic_api_key: str = ""
+    llm_classification_model: str = "claude-haiku-4-5"
+    llm_extraction_fallback_model: str = "claude-sonnet-5"
+    llm_max_input_chars: int = 8_000
+    llm_budget_soft_warn_ratio: float = 0.8
+
 
 settings = Settings()
