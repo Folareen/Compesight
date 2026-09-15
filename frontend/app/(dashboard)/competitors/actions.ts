@@ -50,3 +50,25 @@ export async function triggerCrawlAction(sourceId: string, competitorId: string)
   await apiFetch(`/api/sources/${sourceId}/crawl`, { method: "POST" });
   redirect(`/competitors/${competitorId}`);
 }
+
+const _DEFAULT_INTERVAL_SECONDS: Record<string, number> = {
+  rss: 1800,
+  website: 3600,
+  github: 3600,
+};
+
+export async function confirmSourceSuggestionAction(
+  competitorId: string,
+  type: string,
+  url: string,
+): Promise<void> {
+  await apiFetch(`/api/competitors/${competitorId}/sources`, {
+    method: "POST",
+    body: JSON.stringify({
+      url,
+      type,
+      crawl_interval_seconds: _DEFAULT_INTERVAL_SECONDS[type] ?? 3600,
+    }),
+  });
+  redirect(`/competitors/${competitorId}`);
+}

@@ -6,11 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import WorkspaceContext, get_workspace_context
 from app.db.session import get_db
 from app.models.competitor import Competitor
-from app.models.source import Source
+from app.models.source import Source, SourceType
 from app.repositories import competitors as competitors_repo
 from app.repositories import sources as sources_repo
 from app.schemas.competitor import CompetitorCreateIn, CompetitorOut, CompetitorUpdateIn
 from app.schemas.source import SourceCreateIn, SourceOut
+from app.services.source_discovery import SourceSuggestion, discover_sources
+from app.tasks.crawling import crawl_source_task
 
 router = APIRouter(prefix="/competitors", tags=["competitors"])
 
@@ -73,6 +75,20 @@ async def delete_competitor(
     await db.commit()
 
 
+@router.get("/{competitor_id}/source-suggestions", response_model=list[SourceSuggestion])
+async def get_source_suggestions(
+    competitor_id: uuid.UUID,
+    ctx: WorkspaceContext = Depends(get_workspace_context),
+    db: AsyncSession = Depends(get_db),
+) -> list[SourceSuggestion]:
+    """Live probe, not a stored resource — nothing here is persisted until
+    the user confirms a suggestion via the normal create_source endpoint."""
+    competitor = await competitors_repo.get(db, ctx.workspace_id, competitor_id)
+    if competitor is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "competitor not found")
+    return await discover_sources(competitor.website_url)
+
+
 @router.get("/{competitor_id}/sources", response_model=list[SourceOut])
 async def list_sources(
     competitor_id: uuid.UUID,
@@ -106,4 +122,14 @@ async def create_source(
         body.crawl_interval_seconds,
     )
     await db.commit()
+
+    # Baseline crawl: don't make the user wait for the next scheduler tick
+    # to see their first content (docs/build-plan.md Phase 2 done
+    # condition — useful content within a minute of adding a competitor).
+    # Only website/pricing_page go through Playwright today (docs/scraping.md);
+    # other source types (RSS, GitHub, ...) land in Phase 6 with their own
+    # fetch path and must wait for it rather than being run through this one.
+    if source.type in (SourceType.website, SourceType.pricing_page):
+        crawl_source_task.delay(str(source.id))
+
     return source

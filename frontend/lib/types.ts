@@ -42,6 +42,13 @@ export type Source = {
   last_success_at: string | null;
   consecutive_failures: number;
   blocked_reason: string | null;
+  extraction_failure_streak: number;
+  extraction_drift: boolean;
+};
+
+export type SourceSuggestion = {
+  type: SourceType;
+  url: string;
 };
 
 export type ChangeType =
