@@ -104,6 +104,42 @@ export type FindingListResponse = {
   has_more: boolean;
 };
 
+export type ChannelKind = "email" | "slack" | "webhook";
+
+export type NotificationChannel = {
+  id: string;
+  kind: ChannelKind;
+  display_identifier: string;
+  verified_at: string | null;
+  created_at: string;
+};
+
+export type EmailChannelConfigInput = { kind: "email"; recipient_email: string };
+export type SlackChannelConfigInput = { kind: "slack"; webhook_url: string };
+export type WebhookChannelConfigInput = { kind: "webhook"; url: string; secret: string | null };
+
+export type ChannelConfigInput =
+  | EmailChannelConfigInput
+  | SlackChannelConfigInput
+  | WebhookChannelConfigInput;
+
+export type RoutingRule = {
+  id: string;
+  competitor_id: string | null;
+  change_type: ChangeType | null;
+  min_urgency: Urgency;
+  channels: string[];
+  enabled: boolean;
+};
+
+export type RoutingRuleInput = {
+  competitor_id: string | null;
+  change_type: ChangeType | null;
+  min_urgency: Urgency;
+  channels: string[];
+  enabled: boolean;
+};
+
 export type Snapshot = {
   id: string;
   source_id: string;

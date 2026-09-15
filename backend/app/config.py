@@ -34,5 +34,16 @@ class Settings(BaseSettings):
     llm_max_input_chars: int = 8_000
     llm_budget_soft_warn_ratio: float = 0.8
 
+    resend_api_key: str = ""
+    alert_from_email: str = "alerts@compesight.example"
+    # Fernet key for encrypting notification_channel.config at rest.
+    # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    channel_encryption_key: str = ""
+    alert_delivery_max_retries: int = 5
+    alert_backoff_base_seconds: float = 30.0
+    alert_backoff_cap_seconds: float = 3600.0
+    alert_backoff_jitter_seconds: float = 10.0
+    dashboard_base_url: str = "http://localhost:3000"
+
 
 settings = Settings()

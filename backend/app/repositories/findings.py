@@ -66,6 +66,24 @@ async def get_by_dedupe_key(db: AsyncSession, workspace_id: uuid.UUID, dedupe_ke
     return result.scalar_one_or_none()
 
 
+async def list_non_baseline_between(
+    db: AsyncSession, workspace_id: uuid.UUID, since: datetime, until: datetime
+) -> list[Finding]:
+    """Real changes detected in a window, for digest assembly — baseline
+    findings never appear in a digest (they never alert either)."""
+    stmt = workspace_scoped(
+        select(Finding).where(
+            Finding.is_baseline.is_(False),
+            Finding.detected_at >= since,
+            Finding.detected_at < until,
+        ),
+        Finding,
+        workspace_id,
+    ).order_by(Finding.detected_at.desc())
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
 async def list_for_workspace(
     db: AsyncSession,
     workspace_id: uuid.UUID,

@@ -15,6 +15,7 @@ from app.services import findings as findings_service
 from app.services.classification import ClassificationOutcome, classify
 from app.services.diffing import diff_pricing, diff_website
 from app.services.significance import is_significant
+from app.tasks.routing import route_finding_task
 
 _EMPTY_CHANGESET = Changeset(fields=[])
 
@@ -97,7 +98,7 @@ async def _diff_extraction_async(extraction_id: uuid.UUID) -> None:
             # duplicate the finding.
             return
 
-        await findings_repo.create(
+        finding = await findings_repo.create(
             db,
             workspace_id,
             source.competitor_id,
@@ -113,6 +114,8 @@ async def _diff_extraction_async(extraction_id: uuid.UUID) -> None:
             classification_status,
         )
         await db.commit()
+
+    route_finding_task.delay(str(finding.id))
 
 
 async def _write_baseline_finding(db, workspace_id: uuid.UUID, source: Source, extraction: Extraction) -> None:

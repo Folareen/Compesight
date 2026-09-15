@@ -22,6 +22,14 @@ async def get_by_id(db: AsyncSession, workspace_id: uuid.UUID) -> Workspace | No
     return result.scalar_one_or_none()
 
 
+async def list_all(db: AsyncSession) -> list[Workspace]:
+    """Every workspace, for the digest scheduler — a system job like
+    get_due_for_crawl in repositories/sources.py, not a session-derived
+    request, so there is no single workspace_id to scope on here."""
+    result = await db.execute(select(Workspace))
+    return list(result.scalars().all())
+
+
 async def get_first_membership_for_user(
     db: AsyncSession, user_id: uuid.UUID
 ) -> WorkspaceMember | None:

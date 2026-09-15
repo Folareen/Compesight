@@ -10,6 +10,9 @@ export function NavBar({ workspaceName }: { workspaceName: string }) {
             Compesight
           </Link>
           <span className="text-sm text-muted">{workspaceName}</span>
+          <Link href="/settings/alerts" className="text-sm text-muted hover:text-foreground">
+            Alerts
+          </Link>
         </div>
         <UserButton />
       </div>

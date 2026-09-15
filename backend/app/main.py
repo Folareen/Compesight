@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.channels import router as channels_router
 from app.api.competitors import router as competitors_router
 from app.api.findings import router as findings_router
 from app.api.health import router as health_router
+from app.api.routing_rules import router as routing_rules_router
 from app.api.snapshots import router as snapshots_router
 from app.api.sources import router as sources_router
 from app.api.workspaces import router as workspaces_router
@@ -25,3 +27,5 @@ app.include_router(competitors_router, prefix="/api")
 app.include_router(sources_router, prefix="/api")
 app.include_router(findings_router, prefix="/api")
 app.include_router(snapshots_router, prefix="/api")
+app.include_router(channels_router, prefix="/api")
+app.include_router(routing_rules_router, prefix="/api")
