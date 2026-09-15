@@ -3,11 +3,19 @@ import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/EmptyState";
 import { FindingsTimelineClient } from "@/components/FindingsTimelineClient";
 import { HealthPill } from "@/components/HealthPill";
-import { getCompetitor, listSources } from "@/lib/competitors";
+import { getCompetitor, listSourceSuggestions, listSources } from "@/lib/competitors";
 import { listFindings } from "@/lib/findings";
-import { createSourceAction, triggerCrawlAction } from "../actions";
+import { confirmSourceSuggestionAction, createSourceAction, triggerCrawlAction } from "../actions";
 
-async function FindingsTimeline({ competitorId, sourceCount }: { competitorId: string; sourceCount: number }) {
+async function FindingsTimeline({
+  competitorId,
+  sourceCount,
+  latestSuccessAt,
+}: {
+  competitorId: string;
+  sourceCount: number;
+  latestSuccessAt: string | null;
+}) {
   const { data: findings, next_cursor, has_more } = await listFindings({ competitorId });
 
   if (sourceCount === 0) {
@@ -30,6 +38,18 @@ async function FindingsTimeline({ competitorId, sourceCount }: { competitorId: s
     );
   }
 
+  const onlyBaseline = findings.every((f) => f.is_baseline);
+  if (onlyBaseline && latestSuccessAt !== null) {
+    return (
+      <EmptyState
+        kind="quiet"
+        title="No changes yet"
+        description="Baseline captured — this competitor's sources are being watched, nothing has changed since."
+        lastCheckedAt={latestSuccessAt}
+      />
+    );
+  }
+
   return (
     <FindingsTimelineClient
       competitorId={competitorId}
@@ -37,6 +57,47 @@ async function FindingsTimeline({ competitorId, sourceCount }: { competitorId: s
       initialCursor={next_cursor}
       initialHasMore={has_more}
     />
+  );
+}
+
+async function SourceSuggestions({
+  competitorId,
+  existingUrls,
+}: {
+  competitorId: string;
+  existingUrls: Set<string>;
+}) {
+  const suggestions = await listSourceSuggestions(competitorId);
+  const unadded = suggestions.filter((s) => !existingUrls.has(s.url));
+
+  if (unadded.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-dashed border-border bg-surface p-3">
+      <p className="text-xs font-medium text-muted">Suggested sources</p>
+      <ul className="space-y-2">
+        {unadded.map((suggestion) => (
+          <li key={suggestion.url} className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">{suggestion.type}</p>
+              <p className="text-xs text-faint">{suggestion.url}</p>
+            </div>
+            <form
+              action={confirmSourceSuggestionAction.bind(null, competitorId, suggestion.type, suggestion.url)}
+            >
+              <button
+                type="submit"
+                className="rounded-md border border-accent px-2 py-1 text-xs font-medium text-accent hover:bg-accent hover:text-accent-fg"
+              >
+                Add
+              </button>
+            </form>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -49,6 +110,11 @@ export default async function CompetitorDetailPage({ params }: { params: Promise
 
   const sources = await listSources(id);
   const anySourceFailing = sources.some((s) => s.status === "failing" || s.status === "blocked");
+  const successTimestamps = sources
+    .map((s) => s.last_success_at)
+    .filter((t): t is string => t !== null)
+    .sort();
+  const latestSuccessAt = successTimestamps.length > 0 ? successTimestamps[successTimestamps.length - 1] : null;
 
   return (
     <div className="space-y-8">
@@ -71,6 +137,11 @@ export default async function CompetitorDetailPage({ params }: { params: Promise
                 <div>
                   <p className="text-sm font-medium">{source.type}</p>
                   <p className="text-xs text-faint">{source.url}</p>
+                  {source.extraction_drift ? (
+                    <p className="text-xs text-urgency-high">
+                      Extraction drift — the page may have changed shape
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-3">
                   <HealthPill status={source.status} />
@@ -84,6 +155,10 @@ export default async function CompetitorDetailPage({ params }: { params: Promise
             ))}
           </ul>
         )}
+
+        <Suspense fallback={null}>
+          <SourceSuggestions competitorId={id} existingUrls={new Set(sources.map((s) => s.url))} />
+        </Suspense>
 
         <form
           action={createSourceAction.bind(null, competitor.id)}
@@ -148,7 +223,7 @@ export default async function CompetitorDetailPage({ params }: { params: Promise
           />
         ) : null}
         <Suspense fallback={<p className="text-sm text-muted">Loading findings…</p>}>
-          <FindingsTimeline competitorId={id} sourceCount={sources.length} />
+          <FindingsTimeline competitorId={id} sourceCount={sources.length} latestSuccessAt={latestSuccessAt} />
         </Suspense>
       </section>
     </div>
