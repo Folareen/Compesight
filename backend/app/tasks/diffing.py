@@ -7,6 +7,7 @@ from app.models.extraction import Extraction
 from app.models.finding import ChangeType, ClassificationStatus, Urgency
 from app.models.snapshot import Snapshot
 from app.models.source import Source, SourceType
+from app.repositories import competitors as competitors_repo
 from app.repositories import extractions as extractions_repo
 from app.repositories import findings as findings_repo
 from app.schemas.extraction_fields import Changeset, PricingPageFields, WebsitePageFields
@@ -42,6 +43,7 @@ async def _diff_extraction_async(extraction_id: uuid.UUID) -> None:
             # this is a re-baseline, not a field diff (docs/scraping.md:
             # schema version changes are not findings).
             await _write_baseline_finding(db, workspace_id, source, extraction)
+            await competitors_repo.activate_if_pending(db, workspace_id, source.competitor_id)
             await db.commit()
             return
 

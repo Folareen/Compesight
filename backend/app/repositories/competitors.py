@@ -47,6 +47,17 @@ async def update(
     return competitor
 
 
+async def activate_if_pending(db: AsyncSession, workspace_id: uuid.UUID, competitor_id: uuid.UUID) -> None:
+    """Flip a `pending` competitor to `active` once it has produced its
+    first finding. A no-op for `active` or `muted` — muted is a deliberate
+    user choice this must never override."""
+    competitor = await get_scoped_or_404(db, Competitor, workspace_id, competitor_id)
+    if competitor is None or competitor.status != CompetitorStatus.pending:
+        return
+    competitor.status = CompetitorStatus.active
+    await db.flush()
+
+
 async def delete(db: AsyncSession, workspace_id: uuid.UUID, competitor_id: uuid.UUID) -> bool:
     competitor = await get_scoped_or_404(db, Competitor, workspace_id, competitor_id)
     if competitor is None:
