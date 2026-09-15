@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     scheduler_enqueue_jitter_seconds: int = 60
     source_lock_ttl_seconds: int = 300
     robots_cache_ttl_seconds: int = 3600
+    extraction_drift_threshold: int = 3
+    source_discovery_timeout_seconds: float = 5.0
 
 
 settings = Settings()

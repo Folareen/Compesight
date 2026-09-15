@@ -120,10 +120,11 @@ async def _crawl_source_async(source_id: uuid.UUID) -> float | None:
                 fields = await extract_website_page(result.page, source_config)
         except ExtractionFailed:
             # Extraction-drift signal (docs/scraping.md): fetches succeed
-            # but selectors can't find what they expect. This degrades the
-            # source without touching crawl-health counters — it's a
-            # different failure mode from a fetch failure, tracked
-            # separately from consecutive_failures.
+            # but selectors can't find what they expect. Tracked as its own
+            # streak, separate from consecutive_failures (an ordinary fetch
+            # failure) — repeated failures here mean the page was
+            # redesigned, not that the site is unreachable.
+            streak = source.extraction_failure_streak + 1
             await sources_repo.update_health(
                 db,
                 source.workspace_id,
@@ -133,6 +134,7 @@ async def _crawl_source_async(source_id: uuid.UUID) -> float | None:
                 last_success_at=now,
                 consecutive_failures=source.consecutive_failures,
                 blocked_reason=None,
+                extraction_failure_streak=streak,
             )
             await db.commit()
             await result.close()
@@ -147,6 +149,18 @@ async def _crawl_source_async(source_id: uuid.UUID) -> float | None:
             ExtractionMethod.selector,
             confidence=1.0,
         )
+        if source.extraction_failure_streak != 0:
+            await sources_repo.update_health(
+                db,
+                source.workspace_id,
+                source.id,
+                status=source.status,
+                last_attempt_at=now,
+                last_success_at=now,
+                consecutive_failures=source.consecutive_failures,
+                blocked_reason=source.blocked_reason,
+                extraction_failure_streak=0,
+            )
         await db.commit()
         await result.close()
 

@@ -52,6 +52,7 @@ class Source(Base):
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
     blocked_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    extraction_failure_streak: Mapped[int] = mapped_column(Integer, default=0)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

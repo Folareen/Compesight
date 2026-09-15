@@ -55,7 +55,12 @@ async def update_health(
     last_success_at: datetime | None,
     consecutive_failures: int,
     blocked_reason: str | None,
+    extraction_failure_streak: int | None = None,
 ) -> Source | None:
+    """`extraction_failure_streak` is None for calls unrelated to
+    extraction (ordinary crawl-health transitions) — leave it unchanged;
+    callers on the extraction path always pass the new value explicitly,
+    including 0 to reset it on a successful extraction."""
     source = await get_scoped_or_404(db, Source, workspace_id, source_id)
     if source is None:
         return None
@@ -65,6 +70,8 @@ async def update_health(
         source.last_success_at = last_success_at
     source.consecutive_failures = consecutive_failures
     source.blocked_reason = blocked_reason
+    if extraction_failure_streak is not None:
+        source.extraction_failure_streak = extraction_failure_streak
     await db.flush()
     return source
 
